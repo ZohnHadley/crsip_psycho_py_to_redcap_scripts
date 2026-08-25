@@ -22,43 +22,36 @@ else:
 
 
 #region script configurables
-project_name = "BADE IMAGES MRI"
-script_name = "{} BADE IMAGE MRI to Redcap".format(project_name)
+project_name = "ER40"
+script_name = "{} ER40 to Redcap".format(project_name)
 script_config = {
-    "debug": False,   # when True, also export a per-trial CSV (match / degree_change / responses) for spot-checking
+    "debug": False,   # when True, also export a per-trial CSV (trial correctness) for spot-checking
     "google_sheet_url": "",
     "redcap_api_url": "",
     "redcap_api_key": "",
     "red_cap_variables" : {
-            "date":"", 
-            "task_version":"",
-
-            "percent_trials_considered":"",
-            "acc_confirm":"",
-            "acc_disconfirm":"",
-            "total_acc":"",
-            "ratingchg_correctC":"",
-            "ratingchg_correctD":"",
-            
-            "ratingchg_incorrectC":"",
-            "ratingchg_incorrectD":"",
-            
-            "total_ratingchg":"",
-            
-            "rt_correctC":"",
-            "rt_correctD":"",
-            "rt_incorrectC":"",
-            "rt_incorrectD":"",
-            
-            "total_rt":""
+            "record_id":"",
+            "redcap_event_name":"",
+            ###### keys that will change
+            # "er_40_":"", -- this one will be generated
+            "er_40_total":"",
+            "er_40_zscore":""
     },
-    
     "dir_paths":{
-        "project_folder_path": os.path.join(base_path, 'bade-images_MRIpract-v2'),
-        "data_folder_path": os.path.join(base_path, 'bade-images_MRIpract-v2','data'),
-        "data_frame_exports": os.path.join(base_path, 'bade_images_MRI_red_cap_exports')
+        "project_folder_path": os.path.join(base_path, 'ER-40'),
+        "data_folder_path": os.path.join(base_path, 'ER-40','data'),
+        "data_frame_exports": os.path.join(base_path, 'ER-40_red_cap_exports')
     }
-} 
+}
+
+session_types = {
+    "_m2":"m2_arm_1", 
+    "_pre":"pre_arm_1", 
+    "_post":"post_arm_1", 
+    "_base":"base_arm_1", 
+    "":"all_arm_1",
+    "_":"unknown",
+}
 
 #region script variables
 user_input = None 
@@ -143,6 +136,7 @@ def format_time(time_string):
 def get_path_base_name(path):
     return os.path.basename(path)
 
+###updated
 def check_folders_exist():
     for key, path in script_config["dir_paths"].items():
         if not os.path.isdir(path):
@@ -152,6 +146,7 @@ def check_folders_exist():
                     log("l",f"making directory the \'{get_path_base_name(path)}\\\' folder")
                     os.makedirs(path, exist_ok=True)
                 continue
+###updated
 
 def read_data_frame_from_csv(file_path):
     if os.path.isfile(file_path):
@@ -172,7 +167,7 @@ def has_required_columns(session_data_frame, required_columns):
             if col not in session_data_frame.columns
         ]
 
-        if missing_required: 
+        if missing_required:
             return {"val":True, "columns":missing_required}
         return {"val":False, "columns":missing_required}
 
@@ -185,6 +180,7 @@ def get_column_list(data_frame, column_name):
 
 #this is basically the only section that should change
 def map_data_frame_to_red_cap_variable(session_data_frame):
+    global session_types
     try:
         if session_data_frame is None or session_data_frame.empty:
             log("e", "~~~~~~~~~~~~~~~~~~~~")
@@ -193,105 +189,82 @@ def map_data_frame_to_red_cap_variable(session_data_frame):
             log("e", " ... skipping empty data frame")
             log("e", "~~~~~~~~~~~~~~~~~~~~")
             return None
-            # raise Exception("[mapping data frame] data frame is empty")
-        
-        required_columns = has_required_columns(session_data_frame, ['date', 'participant'])
+
+        required_columns = has_required_columns(session_data_frame, ['date', 'participant', 'timepoints', 'score', 'scoreZ', 'trialCorrectAns'])
 
         if required_columns["val"]:
             raise Exception(f"Missing required columns: {required_columns['columns']}")
 
-        # ---- Helpers ----
-        def _mean(series):
-                series = pd.to_numeric(series, errors='coerce')
-                result = series.mean()
-                if pd.isna(result):
-                    # empty subset (e.g. a participant with no incorrect confirm trials) -> blank cell
-                    return ''
-                return round(float(result), 4)
-                 
+        #print(session_data_frame.columns.tolist()) 
         
-        # valid_date = datetime.strptime(session_data_frame["date"].iloc[0], "%Y-%m-%d_%Hh%M.%S.%f").strftime("%m/%d/%Y %H:%M:%S")
-        # formatted_date = valid_date if not pd.isna(valid_date) else ""
-        # ---- Counts ----
- 
-        trial_rows = session_data_frame[session_data_frame['trialType'] == 'trial']
-        nb_trials_ran_in_session = len(trial_rows) # number of trials 
-
+        redcap_event_name = session_types.get(session_data_frame['timepoints'].iloc[0])
         data_frame = pd.DataFrame([script_config["red_cap_variables"]])
-        # data_frame["percent_trials_considered"]= (nb_trials_ran_in_session and nb_answered_trials / nb_trials_ran_in_session * 100) or 0
-        # ---- Build the analysis frame: answered trials only (mirrors percent_trials_considered) ----
-        answered = trial_rows.copy()
-        answered['condition2'] = answered['condition2'].astype(str).str.strip()
-        for _col in ['tSlider.response', 'tSlider.response1', 'tSlider.response2', 'tSlider.rt']:
-            answered[_col] = pd.to_numeric(answered[_col], errors='coerce')
-        # A trial is "answered" if the slider was actually moved (0 / blank = not answered)
-        answered = answered[(answered['tSlider.response'].notna()) & (answered['tSlider.response'] != 0)]
-        nb_answered_trials = len(answered)
+        data_frame = data_frame.fillna('')
+  
+        responses = get_column_list(session_data_frame, 'trialCorrectAns')
+        if not responses:
+            log("e",f"No valid responses found in the data frame for participant {session_data_frame['participant']}.")
+            return None
+        responses = [response for response in responses if response != '' and not pd.isna(response)]
+        for i in range(len(responses)):
+            response = responses[i]
+            if response != None and response != '' and not pd.isna(response):
+                if response == 1:
+                    data_frame[f'er_40_{i+1}'] = 1
+                elif response == 0:
+                    data_frame[f'er_40_{i+1}'] = 0
+            else:
+                log("e",f"Invalid response value '{response}' found for participant {session_data_frame['participant']} at index {i}. Expected 0 or 1.")
+                return None
+        # script_config["red_cap_variables"]["record_id"] = session_data_frame['participant']
+        #go throut list and get first instance of date and format 
+        dates = get_column_list(session_data_frame, 'date')
+        dates = [date for date in dates if date != '' and not pd.isna(date)]
 
-        # Correct final answer comes from the 2nd letter of condition4 (Y -> +100, N -> -100)
-        correct_answer = answered['condition4'].astype(str).str.strip().str[1].map({'Y': 100, 'N': -100})
-        # match = 1 when the participant's final response has the same sign as the correct answer
-        answered['match'] = (answered['tSlider.response'] * correct_answer > 0).astype(int)
-        # "rating change between img1 and img2" = rating after img2 minus rating after img1
-        # (signed; wrap in .abs() below if your analysis wants magnitude of change)
-        answered['degree_change'] = answered['tSlider.response2'] - answered['tSlider.response1']
-
-        confirm = answered[answered['condition2'] == 'confirm']
-        disconfirm = answered[answered['condition2'] == 'disconfirm']
-
-        data_frame["task_version"] = session_data_frame["psychopyVersion"].iloc[0] if "psychopyVersion" in session_data_frame.columns else ""
-        data_frame["percent_trials_considered"] = round(nb_answered_trials / nb_trials_ran_in_session * 100, 2) if nb_trials_ran_in_session else 0
-
-        # ---- Accuracy: mean of the 0/1 match indicator over the answered trials of each condition ----
-        data_frame["acc_confirm"]    = _mean(confirm['match'])
-        data_frame["acc_disconfirm"] = _mean(disconfirm['match'])
-        data_frame["total_acc"]      = _mean(answered['match'])
-
-        # ---- Rating change: averaged over only the matched / non-matched trials of each condition ----
-        data_frame["ratingchg_correctC"]   = _mean(confirm[confirm['match'] == 1]['degree_change'])
-        data_frame["ratingchg_correctD"]   = _mean(disconfirm[disconfirm['match'] == 1]['degree_change'])
-        data_frame["ratingchg_incorrectC"] = _mean(confirm[confirm['match'] == 0]['degree_change'])
-        data_frame["ratingchg_incorrectD"] = _mean(disconfirm[disconfirm['match'] == 0]['degree_change'])
-        data_frame["total_ratingchg"]      = _mean(answered['degree_change'])
-
-        # ---- Response time: same matched / non-matched subsets, averaged over tSlider.rt ----
-        data_frame["rt_correctC"]   = _mean(confirm[confirm['match'] == 1]['tSlider.rt'])
-        data_frame["rt_correctD"]   = _mean(disconfirm[disconfirm['match'] == 1]['tSlider.rt'])
-        data_frame["rt_incorrectC"] = _mean(confirm[confirm['match'] == 0]['tSlider.rt'])
-        data_frame["rt_incorrectD"] = _mean(disconfirm[disconfirm['match'] == 0]['tSlider.rt'])
-        data_frame["total_rt"]      = _mean(answered['tSlider.rt'])
+        data_frame['record_id'] = session_data_frame['participant']
+        data_frame['date'] = format_time(dates[0])
+        data_frame['redcap_event_name'] = redcap_event_name
+        data_frame['er_40_total'] = session_data_frame['score'].iloc[-1]
+        data_frame['er_40_zscore'] = session_data_frame['scoreZ'].iloc[-1]
+        log("", f"extracted data : participant[{data_frame['record_id'].iloc[0]}], event name [{data_frame['redcap_event_name'].iloc[0]}]")
 
         # ---- Optional per-trial debug export (toggle via script_config["debug"]) ----
+        # writes the scored trials with the er_40_N variable each one was mapped to,
+        # so a row in the redcap export can be traced back to its source trial.
         if script_config.get("debug"):
-            debug_cols = ['index', 'block', 'condition2', 'condition4', 'trialType',
-                          'tSlider.response1', 'tSlider.response2', 'tSlider.response',
-                          'degree_change', 'match', 'tSlider.rt']
-            debug_view = answered[[c for c in debug_cols if c in answered.columns]].copy()
+            scored_trials = session_data_frame[
+                session_data_frame['trialCorrectAns'].apply(lambda value: value != '' and not pd.isna(value))
+            ].copy()
+            scored_trials.insert(0, 'er_40_variable', [f"er_40_{i+1}" for i in range(len(scored_trials))])
             save_debug_frame(
-                debug_view,
-                session_data_frame["participant"].iloc[0],
-                format_time(session_data_frame["date"].iloc[0]),
+                scored_trials,
+                data_frame['record_id'].iloc[0],
+                data_frame['date'].iloc[0],
             )
-        # # data_frame["acc_disconfirm"]=            _mean(series = disconf_rows, filter = conf_rows['tSlider.response'] == -100)
-        data_frame["participant"]=               session_data_frame["participant"].iloc[0]
-        data_frame["date"]=                      format_time(session_data_frame["date"].iloc[0])
-         
+        # for key, value in session_types.items():
+        #     if session_data_frame['timepoints'].iloc[0] == key:
+        #         print(f"{key} is equal to {value}")
+                
+    
         #if dataframe is empty raise an error
-        if data_frame.empty: 
+        if data_frame.empty:
             raise Exception("Data frame is empty. Cannot compute scores.")
+
         return data_frame
     except Exception as e:
-        log("e", f"Error while computing scores: {e}") 
+        log("e",f"Error while computing scores: {e}")
+        if script_config.get("debug"):
+            traceback.print_exc()
         return None
 
 
-def save_debug_frame(answered_frame, participant, experiment_date):
+def save_debug_frame(scored_trials_frame, participant, experiment_date):
     try:
         debug_dir = os.path.join(script_config["dir_paths"]["data_frame_exports"], "debug")
         os.makedirs(debug_dir, exist_ok=True)
         safe_date = re.sub(r'[\\/:*?"<>|]', '-', str(experiment_date))
-        file_name = f"{participant}_DEBUG_per-trial_bade-images_MRIpract_{safe_date}.csv"
-        answered_frame.to_csv(os.path.join(debug_dir, file_name), index=False)
+        file_name = f"{participant}_DEBUG_per-trial_ER-40_{safe_date}.csv"
+        scored_trials_frame.to_csv(os.path.join(debug_dir, file_name), index=False)
         log("l", f"[debug] per-trial data written: {file_name}")
     except Exception as error:
         log("e", f"[debug] could not write per-trial debug file. CAUSED BY : {error}")
@@ -302,19 +275,18 @@ def save_data_frame_to_redcap_csv(data_frame):
         # FIXED: use OR instead of AND
         if data_frame is None or data_frame.empty:
             return None
-        if data_frame['participant'].iloc[0]== None:
-            raise Exception("[ saving data ] : participant value is None")
+        if data_frame['record_id'].iloc[0] == None:
+            raise Exception("[ saving data ] : record_id value is None")
         if data_frame['date'].iloc[0] == None:
             raise Exception("[ saving data ] : date value is None")
 
-        participant = data_frame['participant'].iloc[0]
+        participant = data_frame['record_id'].iloc[0]
         experiment_date = data_frame['date'].iloc[0]
-
 
         # Replace invalid filename characters
         safe_date = re.sub(r'[\\/:*?"<>|]', '-', str(experiment_date))
 
-        exported_file_name = f"{participant}_redcap_bade-images_MRIpract_{safe_date}.csv"
+        exported_file_name = f"{participant}_redcap_ER-40_{safe_date}.csv"
         exported_file_path = os.path.join(
             script_config["dir_paths"]["data_frame_exports"],
             exported_file_name
@@ -325,7 +297,6 @@ def save_data_frame_to_redcap_csv(data_frame):
 
     except Exception as error:
         log("e", f"An exception occurred. Error occurred while exporting data frame. CAUSED BY : {error}")
-        
 
 
 ##TODO : FIX THIS : if fixed script is basicaly finishjed
@@ -348,7 +319,6 @@ def save_combined_data_frame_to_redcap_csv(data_frames, file_name = "combined_re
         log("w",f"Combined data frame saved {count} out of {len(data_frames)} total participants.")
     except Exception as error:
         log("e",f"An exception occurred. Error while saving combined data frame to Redcap CSV. {error}")
-        
 
 #
 #
@@ -376,7 +346,6 @@ def read_data_frames_from__csvs(folder_path):
         return data_frames
     except Exception as error:
         log("e",f"An exception occurred. Error while reading data frames from CSVs. {error}")
-        
         return []
 
 def map_data_frames_to_red_cap_variables(data_frames):
@@ -385,7 +354,6 @@ def map_data_frames_to_red_cap_variables(data_frames):
         return list
     except Exception:
         log("e","An exception occurred. Error while mapping data frames to Redcap variables.")
-        
 
 def save_all_data_frames_to_redcap_csv(data_frames):
     try:
@@ -399,8 +367,7 @@ def save_all_data_frames_to_redcap_csv(data_frames):
         else:
             log("w", f"*** {count} data extracted ***")
     except Exception as error:
-        log("e","An exception occurred. Error while saving data frames to Redcap CSV. {}", error)
-        
+        log("e",f"An exception occurred. Error while saving data frames to Redcap CSV. {error}")
 
 #script execution
 #run a console window with mainmenu options

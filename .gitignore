@@ -1,0 +1,8 @@
+# Python bytecode caches
+__pycache__/
+*.py[cod]
+
+# Build output from packaging the scripts into .exe
+build/
+dist/
+*.spec
