@@ -1,0 +1,2 @@
+date,task_version,percent_trials_considered,acc_confirm,acc_disconfirm,total_acc,ratingchg_correctC,ratingchg_correctD,ratingchg_incorrectC,ratingchg_incorrectD,total_ratingchg,rt_correctC,rt_correctD,rt_incorrectC,rt_incorrectD,total_rt,participant
+08/11/2026 13:27:20,2024.2.4,100.0,1.0,0.9167,0.9583,-11.0417,-24.3636,,0.0,-16.6875,4.0288,4.0303,,4.0289,4.0295,TEST_GOOD
