@@ -10,7 +10,7 @@
 file is blocked since unknown files comming from the internet
 could be dangerous
 
-- right click on the script_runner_ER40_redcap_extractor.bat file
+- right click on the script_runner_bade_images_MRIpract_redcap_extractor.bat file
 - click properties
 - and at the button check the un block box and then click ok
 
