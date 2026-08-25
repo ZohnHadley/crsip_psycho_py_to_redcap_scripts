@@ -1,0 +1,17 @@
+Variable / Field Name	Form Name	Section Header	Field Type	Field Label	Choices, Calculations, OR Slider Labels	Field Note	Text Validation Type OR Show Slider Number	Text Validation Min	Text Validation Max	Identifier?	Branching Logic (Show field only if...)	Required Field?	Custom Alignment	Question Number (surveys only)	Matrix Group Name	Matrix Ranking?	Field Annotation
+date	bade		text	Date the task was completed								y					
+task_version	bade		text	The release version of the task used								y					
+percent_trials_considered	bade		text	The percentage of trials completed by the participant among all trials (i.e., the proportion of trials where the participant answered)								y					
+acc_confirm	bade		text	"Average number of matched responses on ""confirm"" trials (Yes-Yes, No-No)"								y					
+acc_disconfirm	bade		text	"Average number of matched responses on ""disconfirm"" trials (Yes-No, No-Yes)"								y					
+total_acc	bade		text	Average number of matched responses on all trials								y					
+ratingchg_correctc	bade		text	"Average rating change between img1 and img2 on ""confirm"" trials with a matching response"								y					
+ratingchg_correctd	bade		text	"Average rating change between img1 and img2 on ""disconfirm"" trials with a matching response"								y					
+ratingchg_incorrectc	bade		text	"Average rating change between img1 and img2 on ""confirm"" trials with a non-matching response"								y					
+ratingchg_incorrectd	bade		text	"Average rating change between img1 and img2 on ""disconfirm"" trials with a non-matching response"								y					
+total_ratingchg	bade		text	Average of the change of ratings between img1 and img2								y					
+rt_correctc	bade		text	"Average response time on ""confirm"" trials with a matching response"								y					
+rt_correctd	bade		text	"Average response time on ""disconfirm"" trials with a matching response"								y					
+rt_incorrectc	bade		text	"Average response time on ""confirm"" trials with a non-matching response"								y					
+rt_incorrectd	bade		text	"Average response time on ""disconfirm"" trials with a non-matching response"								y					
+total_rt	bade		text	Average response time on all trials								y					
