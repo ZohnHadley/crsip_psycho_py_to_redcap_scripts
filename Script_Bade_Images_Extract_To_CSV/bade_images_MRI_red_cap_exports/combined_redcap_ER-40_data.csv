@@ -1,4 +1,0 @@
-date,task_version,percent_trials_considered,acc_confirm,acc_disconfirm,total_acc,ratingchg_correctC,ratingchg_correctD,ratingchg_incorrectC,ratingchg_incorrectD,total_ratingchg,rt_correctC,rt_correctD,rt_incorrectC,rt_incorrectD,total_rt,participant
-08/04/2026 14:54:46,2024.2.4,0.69,,1.0,1.0,,94.0,,,94.0,,4.0459,,,4.0459,TEST_DATA_1
-08/04/2026 10:54:55,2024.2.4,78.47,0.9825,0.8393,0.9115,-1.9987,-37.368,-16.0,0.0,-16.6745,4.0304,4.0309,4.0286,4.0289,4.0305,TEST_DATA
-08/11/2026 13:27:20,2024.2.4,100.0,1.0,0.9167,0.9583,-11.0417,-24.3636,,0.0,-16.6875,4.0288,4.0303,,4.0289,4.0295,TEST_GOOD
